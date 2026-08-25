@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grid Logic Quest</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #0f172a;
+      color: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 15px;
+    }
+    .info-bar {
+      display: flex;
+      gap: 30px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    canvas {
+      border: 4px solid #334155;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      background-color: #1e293b;
+    }
+    .controls-hint {
+      margin-top: 15px;
+      color: #94a3b8;
+      font-size: 0.9rem;
+    }
+    button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      font-size: 1rem;
+      background-color: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      display: none;
+    }
+    button:hover { background-color: #2563eb; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>Grid Logic Quest</h1>
+    <div class="info-bar">
+      <div>Level: <span id="level-display" style="color: #38bdf8;">1</span> / 3</div>
+      <div>Moves: <span id="moves-display" style="color: #facc15;">0</span></div>
+    </div>
+  </div>
+
+  <canvas id="gameCanvas" width="400" height="400"></canvas>
+  
+  <div class="controls-hint">Use Arrow Keys or WASD to Navigate to the Green Exit</div>
+  <button id="restart-btn" onclick="resetGame()">Play Again</button>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const tileSize = 40;
+    const gridCols = 10;
+    const gridRows = 10;
+
+    let currentLevel = 0;
+    let moves = 0;
+    let player = { x: 1, y: 1 };
+    let isGameOver = false;
+
+    // Map Legend: 0 = Empty, 1 = Wall, 2 = Player Start, 3 = Exit
+    const levels = [
+      // Level 1: Simple Path
+      [
+        [1,1,1,1,1,1,1,1,1,1],
+        [1,2,0,0,1,0,0,0,0,1],
+        [1,1,1,0,1,0,1,1,0,1],
+        [1,0,0,0,0,0,1,0,0,1],
+        [1,0,1,1,1,1,1,0,1,1],
+        [1,0,1,0,0,0,0,0,0,1],
+        [1,0,1,0,1,1,1,1,0,1],
+        [1,0,0,0,1,3,0,1,0,1],
+        [1,1,1,0,1,1,0,0,0,1],
+        [1,1,1,1,1,1,1,1,1,1]
+      ],
+      // Level 2: Narrow Corridors
+      [
+        [1,1,1,1,1,1,1,1,1,1],
+        [1,2,1,0,0,0,0,0,0,1],
+        [1,0,1,0,1,1,1,1,0,1],
+        [1,0,0,0,1,0,0,1,0,1],
+        [1,1,1,0,1,0,1,1,0,1],
+        [1,0,0,0,0,0,0,1,0,1],
+        [1,0,1,1,1,1,0,1,0,1],
+        [1,0,1,3,0,1,0,0,0,1],
+        [1,0,0,0,0,1,1,1,0,1],
+        [1,1,1,1,1,1,1,1,1,1]
+      ],
+      // Level 3: Winding Maze
+      [
+        [1,1,1,1,1,1,1,1,1,1],
+        [1,2,0,0,0,1,0,0,0,1],
+        [1,1,1,1,0,1,0,1,0,1],
+        [1,0,0,1,0,0,0,1,0,1],
+        [1,0,1,1,1,1,1,1,0,1],
+        [1,0,0,0,0,0,0,0,0,1],
+        [1,1,1,1,1,0,1,1,1,1],
+        [1,0,0,0,1,0,0,0,3,1],
+        [1,0,1,0,0,0,1,1,0,1],
+        [1,1,1,1,1,1,1,1,1,1]
+      ]
+    ];
+
+    function loadLevel(levelIndex) {
+      const map = levels[levelIndex];
+      for (let r = 0; r < gridRows; r++) {
+        for (let c = 0; c < gridCols; c++) {
+          if (map[r][c] === 2) {
+            player.x = c;
+            player.y = r;
+          }
+        }
+      }
+      document.getElementById("level-display").innerText = levelIndex + 1;
+      draw();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const map = levels[currentLevel];
+
+      for (let r = 0; r < gridRows; r++) {
+        for (let c = 0; c < gridCols; c++) {
+          if (map[r][c] === 1) {
+            ctx.fillStyle = "#475569";
+            ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
+            ctx.strokeStyle = "#334155";
+            ctx.strokeRect(c * tileSize, r * tileSize, tileSize, tileSize);
+          } else if (map[r][c] === 3) {
+            ctx.fillStyle = "#22c55e";
+            ctx.fillRect(c * tileSize + 4, r * tileSize + 4, tileSize - 8, tileSize - 8);
+          }
+        }
+      }
+
+      // Draw Player
+      ctx.fillStyle = "#38bdf8";
+      ctx.beginPath();
+      ctx.arc(
+        player.x * tileSize + tileSize / 2,
+        player.y * tileSize + tileSize / 2,
+        tileSize / 3,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+    }
+
+    function movePlayer(dx, dy) {
+      if (isGameOver) return;
+
+      const newX = player.x + dx;
+      const newY = player.y + dy;
+      const currentMap = levels[currentLevel];
+
+      if (currentMap[newY][newX] !== 1) {
+        player.x = newX;
+        player.y = newY;
+        moves++;
+        document.getElementById("moves-display").innerText = moves;
+
+        if (currentMap[newY][newX] === 3) {
+          if (currentLevel < levels.length - 1) {
+            currentLevel++;
+            loadLevel(currentLevel);
+          } else {
+            isGameOver = true;
+            document.getElementById("restart-btn").style.display = "block";
+            ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#38bdf8";
+            ctx.font = "bold 24px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("All Levels Cleared!", canvas.width / 2, canvas.height / 2);
+            return;
+          }
+        }
+        draw();
+      }
+    }
+
+    window.addEventListener("keydown", (e) => {
+      switch (e.key) {
+        case "ArrowUp": case "w": case "W": movePlayer(0, -1); break;
+        case "ArrowDown": case "s": case "S": movePlayer(0, 1); break;
+        case "ArrowLeft": case "a": case "A": movePlayer(-1, 0); break;
+        case "ArrowRight": case "d": case "D": movePlayer(1, 0); break;
+      }
+    });
+
+    function resetGame() {
+      currentLevel = 0;
+      moves = 0;
+      isGameOver = false;
+      document.getElementById("moves-display").innerText = moves;
+      document.getElementById("restart-btn").style.display = "none";
+      loadLevel(currentLevel);
+    }
+
+    loadLevel(0);
+  </script>
+</body>
+</html>
